@@ -9,6 +9,10 @@ for test you should do follow change in the contracts;
 ```
 yarn hardhat test
 ```
+## Init
+```
+yarn install
+```
 ## Compile
 ```
 yarn hardhat compile
