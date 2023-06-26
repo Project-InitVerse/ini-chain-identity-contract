@@ -2,7 +2,7 @@ import { BigNumber } from "ethers";
 
 const {ethers,network} = require('hardhat')
 import chai, { expect } from "chai";
-import type {MockOrder,AuditorFactory,ProviderFactory,Provider} from "../types";
+import type {MockOrder,AuditorFactory,ProviderFactory,Provider,PunishContract} from "../types";
 
 describe('provider test',function(){
   let factory_admin:any,provider_1:any,provider_2:any,cus:any;
@@ -12,9 +12,13 @@ describe('provider test',function(){
     this.orderFactory = await (await ethers.getContractFactory('MockOrder')).deploy();
     this.adminFactory = await (await ethers.getContractFactory('AuditorFactory', factory_admin)).deploy(factory_admin.address);
     this.providerFactory = await (await ethers.getContractFactory('ProviderFactory',factory_admin)).deploy();
+    this.punishItem = await (await ethers.getContractFactory('PunishContract',factory_admin)).deploy();
+    await this.punishItem.setFactoryAddr(this.providerFactory.address);
     await this.providerFactory.initialize(factory_admin.address);
     await this.providerFactory.changeAuditorFactory(this.adminFactory.address);
     await this.providerFactory.changeOrderFactory(this.orderFactory.address);
+    await this.providerFactory.changeProviderPunishItemAddr(this.punishItem.address)
+
   })
   it('init',async function(){
     expect(await this.providerFactory.providers(provider_1.address)).to.equal(zero_addr);
@@ -188,45 +192,83 @@ describe('provider test',function(){
     await this.providerFactory.tryPunish(provider_1.address)
     let punish_balance = await ethers.provider.getBalance(provider_c1);
     expect(p1_punish_start_balance.sub(punish_balance)).to.equal(ethers.utils.parseEther('1'));
-    /*
-    await this.valFactory.initialize(whiteList,admin.address);
-    await this.valFactory.connect(admin).changePunishAddress(punish_address.address);
-    await this.valFactory.connect(admin).changeValidatorMinPledgeAmount(ethers.utils.parseEther("1"));
-    await this.valFactory.connect(validator1).createValidator({value:ethers.utils.parseEther("1")});
-    await this.valFactory.connect(admin).changeValidatorState(validator1.address,3);
-    await this.valFactory.tryPunish(validator1.address);
+    expect(await this.punishItem.current_index()).to.equal(1);
+    expect(await this.punishItem.getProviderPunishLength(provider_1.address)).to.equal(1);
+    let punishInfo = await this.punishItem.index_punish_items(0)
+    expect(punishInfo.punish_owner).to.equal(provider_1.address)
+    expect(punishInfo.punish_amount).to.equal(ethers.utils.parseEther('1'))
+    expect(punishInfo.balance_left).to.equal(punish_balance)
+  })
+  it("Provider punish all",async function () {
+    await this.providerFactory.connect(provider_1).createNewProvider(3,6,9,"cn","{}",{value:ethers.utils.parseEther("1")});
+    await this.providerFactory.connect(provider_2).createNewProvider(9,6,3,"cn","{}",{value:ethers.utils.parseEther("1")});
+    await this.providerFactory.connect(factory_admin).changeDecimal(1,1);
+    await this.providerFactory.connect(factory_admin).changePunishPercent(1,1)
+    let provider_c1 = await this.providerFactory.providers(provider_1.address);
+    let provider_c2 = await this.providerFactory.providers(provider_2.address);
+    let p1_punish_start_balance = await ethers.provider.getBalance(provider_c1);
+    let p2_punish_start_balance = await ethers.provider.getBalance(provider_c2);
+    expect(p1_punish_start_balance).to.equal(ethers.utils.parseEther("1"));
+    expect(p2_punish_start_balance).to.equal(ethers.utils.parseEther("1"));
+    await this.providerFactory.tryPunish(provider_1.address)
+    expect(await this.providerFactory.getPunishLength()).to.equal(1)
+
     let punishBlock = await ethers.provider.getBlock("latest");
-
-
-    let validator1_contract = await ethers.getContractAt('Validator',await this.valFactory.owner_validator(validator1.address))
-    expect(await validator1_contract.punish_start_time()).to.equal(punishBlock.timestamp);
-    expect(await validator1_contract.state()).to.equal(1);
+    let provider1_contract = await ethers.getContractAt('Provider',provider_c1)
+    let provider2_contract = await ethers.getContractAt('Provider',provider_c2)
+    expect(await provider1_contract.punish_start_time()).to.equal(punishBlock.timestamp);
+    expect(await provider1_contract.state()).to.equal(1);
+    expect(await provider1_contract.punish_start_margin_amount()).to.equal(ethers.utils.parseEther("1"));
     await network.provider.request({
       method: "evm_setNextBlockTimestamp",
       params: [punishBlock.timestamp+48*3600+30],
     });
-    await this.valFactory.tryPunish(zeroAddress);
-    expect(await validator1_contract.state()).to.equal(2);
-    let punish_balance = await ethers.provider.getBalance(punish_address.address);
-    expect(punish_balance.sub(punish_start_balance)).to.equal(ethers.utils.parseEther('0.01'));
-    await this.valFactory.tryPunish(zeroAddress);
-    expect(await validator1_contract.state()).to.equal(2);
-    punish_balance = await ethers.provider.getBalance(punish_address.address);
-    expect(punish_balance.sub(punish_start_balance)).to.equal(ethers.utils.parseEther('0.01'));
-    expect(await validator1_contract.pledge_amount()).to.equal(ethers.utils.parseEther("0.99"))
-    let block_last = await ethers.provider.getBlock("latest");
+    await this.providerFactory.tryPunish(provider_1.address)
+    expect(await this.providerFactory.getPunishLength()).to.equal(0)
+    let punish_balance = await ethers.provider.getBalance(provider_c1);
+    expect(p1_punish_start_balance.sub(punish_balance)).to.equal(p1_punish_start_balance);
+    expect(await this.punishItem.current_index()).to.equal(1);
+    expect(await this.punishItem.getProviderPunishLength(provider_1.address)).to.equal(1);
+    let punishInfo = await this.punishItem.index_punish_items(0)
+    expect(punishInfo.punish_owner).to.equal(provider_1.address)
+    expect(punishInfo.punish_amount).to.equal(p1_punish_start_balance)
+    expect(punishInfo.balance_left).to.equal(punish_balance)
+    expect(punishInfo.balance_left).to.equal(0)
+    expect(await provider1_contract.state()).to.equal(2);
+    await this.providerFactory.connect(provider_1).addMargin({value:ethers.utils.parseEther("3000")})
+    expect(await provider1_contract.state()).to.equal(0);
+    expect(await this.providerFactory.getPunishLength()).to.equal(0)
+    await this.providerFactory.tryPunish(provider_1.address)
+    await this.providerFactory.tryPunish(provider_2.address)
+    let count = 0;
+    let punishAddrs = await this.providerFactory.getPunishAddress();
+    for(let i=0;i < punishAddrs.length;i++){
+      if(punishAddrs[i] == provider_1.address || punishAddrs[i] == provider_2.address){
+        count = count+1;
+      }
+    }
+    expect(count).to.equal(2);
+    punishBlock = await ethers.provider.getBlock("latest");
     await network.provider.request({
       method: "evm_setNextBlockTimestamp",
-      params: [block_last.timestamp+1*3600+50],
+      params: [punishBlock.timestamp+48*3600+30],
     });
-    await this.valFactory.tryPunish(zeroAddress);
-    expect(await validator1_contract.state()).to.equal(2);
-    punish_balance = await ethers.provider.getBalance(punish_address.address);
-    expect(punish_balance.sub(punish_start_balance)).to.equal(ethers.utils.parseEther('0.02'));
-    expect(await validator1_contract.pledge_amount()).to.equal(ethers.utils.parseEther("0.98"))
-    await expect(this.valFactory.connect(validator2).MarginCalls({value:ethers.utils.parseEther("1")})).to.be.revertedWith('ValidatorFactory : you account is not a validator');
-    await expect(this.valFactory.connect(validator1).MarginCalls({value:ethers.utils.parseEther("1")})).to.be.revertedWith('posMargin must less than max validator pledge amount')
-    await this.valFactory.connect(validator1).MarginCalls({value:ethers.utils.parseEther("0.01")});
-    expect(await validator1_contract.pledge_amount()).to.equal(ethers.utils.parseEther("0.99"))*/
+    await this.providerFactory.tryPunish(zero_addr);
+    expect(await this.providerFactory.getPunishLength()).to.equal(0)
+    expect(await provider1_contract.state()).to.equal(2);
+    expect(await provider2_contract.state()).to.equal(2);
+    punishInfo = await this.punishItem.index_punish_items(0)
+    expect(punishInfo.punish_owner).to.equal(provider_1.address)
+    expect(punishInfo.punish_amount).to.equal(p1_punish_start_balance)
+    expect(punishInfo.balance_left).to.equal(punish_balance)
+    expect(punishInfo.balance_left).to.equal(0)
+    punishInfo = await this.punishItem.index_punish_items(1)
+    expect(punishInfo.punish_owner).to.equal(provider_1.address)
+    expect(punishInfo.punish_amount).to.equal(ethers.utils.parseEther("3000"))
+    expect(punishInfo.balance_left).to.equal(0)
+    punishInfo = await this.punishItem.index_punish_items(2)
+    expect(punishInfo.punish_owner).to.equal(provider_2.address)
+    expect(punishInfo.punish_amount).to.equal(ethers.utils.parseEther("1"))
+    expect(punishInfo.balance_left).to.equal(0)
   })
 })

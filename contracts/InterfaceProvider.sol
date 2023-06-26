@@ -26,6 +26,9 @@ interface IProviderFactory {
 
     function punish_address() external view returns (address);
 
+    function punish_item_address() external view returns (address);
+
+    function removeProviderPunishList(address provider) external;
 }
     struct poaResource {
         uint256 cpu_count;
