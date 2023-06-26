@@ -286,7 +286,10 @@ contract ProviderFactory is IProviderFactory, ReentrancyGuard {
     // all used resource
     poaResource public total_used;
     // punish items contract
-    address public override punish_item_address;
+    //TODO formal
+    address public constant override punish_item_address = address(0x000000000000000000000000000000000000C005);
+    //TODO for test
+    //address public override punish_item_address;
     // map from provider owner to provider contract
     mapping(address => IProvider) public providers;
     address public constant val_factory = address(0x000000000000000000000000000000000000c002);
@@ -340,9 +343,10 @@ contract ProviderFactory is IProviderFactory, ReentrancyGuard {
         require(msg.sender == val_factory, "only val_fac");
         _;
     }
-    function changeProviderPunishItemAddr(address new_punish_item) public onlyAdmin {
-        punish_item_address = new_punish_item;
-    }
+    //TODO for test
+//    function changeProviderPunishItemAddr(address new_punish_item) public onlyAdmin {
+//        punish_item_address = new_punish_item;
+//    }
     // @dev change punish address
     function changePunishAddress(address _punish_address) public onlyAdmin {
         punish_address = _punish_address;

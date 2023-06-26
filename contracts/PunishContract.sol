@@ -11,9 +11,9 @@ contract PunishContract is IPunishContract {
     //IProviderFactory public factory_address;
     mapping(uint256 => PunishItem) public index_punish_items;
     mapping(address => PunishItem[]) public provider_punish_items;
-    uint256 public current_index;
+    uint256 public current_index = 0;
     constructor(){
-        current_index = 0;
+        //current_index = 0;
     }
     function newPunishItem(address owner, uint256 punish_amount, uint256 balance_left) external override {
         if(factory_address.getProvideContract(owner) != msg.sender){
