@@ -1,4 +1,4 @@
-import type {AuditorFactory,Auditor,ProviderFactory} from "../types";
+import type {AuditorFactory,Auditor,ProviderFactory,MockOwner} from "../types";
 const {ethers}= require('hardhat')
 import {expect} from "chai";
 import {BigNumber} from "ethers";
@@ -13,10 +13,11 @@ describe('auditor test',function(){
     this.orderFactory = await (await ethers.getContractFactory('MockOrder')).deploy();
     this.AuditorFactory = await (await ethers.getContractFactory('AuditorFactory', factory_admin)).deploy(factory_admin.address);
     this.providerFactory = await (await ethers.getContractFactory('ProviderFactory',factory_admin)).deploy();
+    this.MockOwner = await (await ethers.getContractFactory('MockOwner')).deploy();
     await this.providerFactory.initialize(factory_admin.address);
     await this.providerFactory.changeAuditorFactory(this.AuditorFactory.address);
     await this.providerFactory.changeOrderFactory(this.orderFactory.address);
-
+    await this.MockOwner.setfactory(zero_address,this.AuditorFactory.address);
     await this.providerFactory.connect(provider1).createNewProvider(3,6,9,"{}",{value:ethers.utils.parseEther("1")});
     await this.providerFactory.connect(provider2).createNewProvider(9,6,3,"{}",{value:ethers.utils.parseEther("1")});
     provider_contract_1 = await this.providerFactory.providers(provider1.address);
@@ -88,4 +89,14 @@ describe('auditor test',function(){
     expect(c[0]['audits'][0]).to.equal(auditor_contract1);
     expect(c[0]['audits'][1]).to.equal(auditor_contract2);
   });
+  it("mock owner",async function(){
+    await this.AuditorFactory.connect(auditor1).createAuditor("cc",{value:ethers.utils.parseEther("1")});
+    let auditor_contract1 = await this.AuditorFactory.auditors(auditor1.address);
+    let auditor_c1 = <Auditor>await ethers.getContractAt('Auditor',auditor_contract1);
+    expect(await this.AuditorFactory.provider_auditor_state(provider_contract_1,auditor_contract1)).to.equal(0);
+    await this.MockOwner.setOwner(auditor1.address);
+    await expect(this.MockOwner.mockAttack(false,provider_contract_1)).to.be.revertedWith("auditor contract equal");
+    await auditor_c1.connect(auditor1).uploadProviderState(provider_contract_1,"{}");
+    expect(await this.AuditorFactory.provider_auditor_state(provider_contract_1,auditor_contract1)).to.equal(2);
+  })
 })

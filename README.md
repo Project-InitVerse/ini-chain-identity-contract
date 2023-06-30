@@ -6,8 +6,9 @@ for test you should do follow change in the contracts;
 - Add comments
 
   ProviderFactory.sol:
-  1. line 290
-  2. line 599
+  1. line 54
+  2. line 294
+  3. line 604
 
   PunishContract.sol:
   1. line 9
@@ -15,8 +16,10 @@ for test you should do follow change in the contracts;
 - Remove comments
 
   ProviderFactory.sol:
-  1. line 292
-  2. line 347-349
+  1. line 56
+  2. line 65
+  3. line 296
+  4. line 352-354
   PunishContract.sol:
   1. line 11
   2. line 35-37

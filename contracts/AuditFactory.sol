@@ -6,7 +6,7 @@ import "./InterfaceAuditor.sol";
 
 contract Auditor is IAuditor, ReentrancyGuard {
     address public override admin;
-    IAuditorFactory public auditor_factory;
+    IAuditorFactory public immutable auditor_factory;
     string public override name;
     mapping(address => providerState) public provider_state;
     mapping(address => string) provider_json;
@@ -42,7 +42,7 @@ contract Auditor is IAuditor, ReentrancyGuard {
 
 contract AuditorFactory is IAuditorFactory, ReentrancyGuard {
     address public admin;
-    uint256 constant public MIN_VALUE_TO_BE_AUDITOR = 0 ether;
+    uint256 public MIN_VALUE_TO_BE_AUDITOR = 0 ether;
     mapping(address => uint256) public auditor_pledge;
     mapping(address => IAuditor)public auditors;
     mapping(address => mapping(address => providerState)) public provider_auditor_state;
@@ -57,7 +57,8 @@ contract AuditorFactory is IAuditorFactory, ReentrancyGuard {
         _;
     }
     modifier onlyAuditor(){
-        require(auditors[IAuditor(msg.sender).admin()] != IAuditor(address(0)));
+        require(auditors[IAuditor(msg.sender).admin()] != IAuditor(address(0)), "auditor contract exist");
+        require(auditors[IAuditor(msg.sender).admin()] == IAuditor(msg.sender), "auditor contract equal");
         _;
     }
     modifier onlyAdmin() {
@@ -72,6 +73,10 @@ contract AuditorFactory is IAuditorFactory, ReentrancyGuard {
         auditor_pledge[msg.sender] = msg.value;
         name_auditor[_name] = msg.sender;
         return address(auditor_contract);
+    }
+
+    function changeToBeAuditor(uint256 _new_value) public onlyAdmin {
+        MIN_VALUE_TO_BE_AUDITOR = _new_value;
     }
 
     function changeAdmin(address new_admin) public onlyAdmin {

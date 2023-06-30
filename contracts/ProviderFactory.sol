@@ -50,7 +50,10 @@ contract Provider is IProvider, ReentrancyGuard {
     // challenge state change
     event ChallengeStateChange(address indexed, bool);
     // provider factroy address
-    IProviderFactory provider_factory;
+    //TODO for formal
+    IProviderFactory public constant provider_factory = IProviderFactory(0x000000000000000000000000000000000000C003);
+    //TODO for test
+    //IProviderFactory public provider_factory;
     // @dev Initialization parameters
     constructor(uint256 cpu_count,
         uint256 mem_count,
@@ -58,7 +61,8 @@ contract Provider is IProvider, ReentrancyGuard {
         address _owner,
         string memory _region,
         string memory provider_info){
-        provider_factory = IProviderFactory(msg.sender);
+        //TODO for test
+        //provider_factory = IProviderFactory(msg.sender);
         total.cpu_count = cpu_count;
         total.memory_count = mem_count;
         total.storage_count = storage_count;
@@ -326,6 +330,7 @@ contract ProviderFactory is IProviderFactory, ReentrancyGuard {
     // @dev only provider contract
     modifier onlyProvider(){
         require(providers[IProvider(msg.sender).owner()] != IProvider(address(0)), "provider contract only");
+        require(providers[IProvider(msg.sender).owner()] == IProvider(msg.sender), "provider contract equal");
         _;
     }
     // @dev only not initialize
@@ -344,9 +349,9 @@ contract ProviderFactory is IProviderFactory, ReentrancyGuard {
         _;
     }
     //TODO for test
-//    function changeProviderPunishItemAddr(address new_punish_item) public onlyAdmin {
-//        punish_item_address = new_punish_item;
-//    }
+    //    function changeProviderPunishItemAddr(address new_punish_item) public onlyAdmin {
+    //        punish_item_address = new_punish_item;
+    //    }
     // @dev change punish address
     function changePunishAddress(address _punish_address) public onlyAdmin {
         punish_address = _punish_address;

@@ -2,7 +2,7 @@ import { BigNumber } from "ethers";
 
 const {ethers,network} = require('hardhat')
 import chai, { expect } from "chai";
-import type {MockOrder,AuditorFactory,ProviderFactory,Provider,PunishContract} from "../types";
+import type {MockOrder,AuditorFactory,ProviderFactory,Provider,PunishContract,MockOwner} from "../types";
 
 describe('provider test',function(){
   let factory_admin:any,provider_1:any,provider_2:any,cus:any;
@@ -13,11 +13,14 @@ describe('provider test',function(){
     this.adminFactory = await (await ethers.getContractFactory('AuditorFactory', factory_admin)).deploy(factory_admin.address);
     this.providerFactory = await (await ethers.getContractFactory('ProviderFactory',factory_admin)).deploy();
     this.punishItem = await (await ethers.getContractFactory('PunishContract',factory_admin)).deploy();
+    this.MockOwner = await (await ethers.getContractFactory('MockOwner')).deploy();
     await this.punishItem.setFactoryAddr(this.providerFactory.address);
     await this.providerFactory.initialize(factory_admin.address);
     await this.providerFactory.changeAuditorFactory(this.adminFactory.address);
     await this.providerFactory.changeOrderFactory(this.orderFactory.address);
-    await this.providerFactory.changeProviderPunishItemAddr(this.punishItem.address)
+    await this.providerFactory.changeProviderPunishItemAddr(this.punishItem.address);
+    await this.MockOwner.setfactory(this.providerFactory.address,zero_addr);
+
 
   })
   it('init',async function(){
@@ -270,5 +273,29 @@ describe('provider test',function(){
     expect(punishInfo.punish_owner).to.equal(provider_2.address)
     expect(punishInfo.punish_amount).to.equal(ethers.utils.parseEther("1"))
     expect(punishInfo.balance_left).to.equal(0)
+  })
+  it("mock owner",async function(){
+    await this.providerFactory.connect(provider_1).createNewProvider(3,6,9,"cn","{}",{value:ethers.utils.parseEther("1")});
+    let provider_c1 = await this.providerFactory.providers(provider_1.address);
+    let provider1_contract = await ethers.getContractAt('Provider',provider_c1);
+    let total_all = await this.providerFactory.total_all();
+    let total_used = await this.providerFactory.total_used();
+    expect(total_all.cpu_count).to.equal(3);
+    expect(total_all.memory_count).to.equal(6);
+    expect(total_all.storage_count).to.equal(9);
+    expect(total_used.cpu_count).to.equal(0);
+    expect(total_used.memory_count).to.equal(0);
+    expect(total_used.storage_count).to.equal(0);
+    await this.MockOwner.setOwner(provider_1.address);
+    await expect(this.MockOwner.mockAttack(true,zero_addr)).to.be.revertedWith("provider contract equal");
+    await provider1_contract.connect(provider_1).updateResource(5,5,5);
+    total_all = await this.providerFactory.total_all();
+    total_used = await this.providerFactory.total_used();
+    expect(total_all.cpu_count).to.equal(5);
+    expect(total_all.memory_count).to.equal(5);
+    expect(total_all.storage_count).to.equal(5);
+    expect(total_used.cpu_count).to.equal(0);
+    expect(total_used.memory_count).to.equal(0);
+    expect(total_used.storage_count).to.equal(0);
   })
 })
