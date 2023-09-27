@@ -35,9 +35,9 @@ contract Provider is IProvider, ReentrancyGuard {
     mapping(uint256 => marginInfo) public margin_infos;
     // provider margin size
     uint256 public margin_size;
-    // provider has been deducted quota
-    uint256 public deducted_quota_numerator;
-    uint256 public deducted_quota_denominator;
+    // provider remain quota
+    uint256 public remain_quota_numerator;
+    uint256 public remain_quota_denominator;
     // provider punish start time
     uint256 public punish_start_time;
     // provider margin amount at punish start time
@@ -83,6 +83,8 @@ contract Provider is IProvider, ReentrancyGuard {
         provider_first_margin_time = block.timestamp;
         last_margin_time = block.timestamp;
         margin_block = block.number;
+        remain_quota_numerator = 1;
+        remain_quota_denominator = 1;
     }
     // @dev get unused resource
     function getLeftResource() public view override returns (poaResource memory){
@@ -97,12 +99,12 @@ contract Provider is IProvider, ReentrancyGuard {
         if (margin_infos[index].withdrawn) {
             return 0;
         }
-        uint256 numerator = deducted_quota_numerator * margin_infos[index].deducted_quota_denominator - deducted_quota_denominator * margin_infos[index].deducted_quota_numerator;
-        uint256 denominator = deducted_quota_denominator * margin_infos[index].deducted_quota_denominator;
-        if (numerator >= deducted_quota_numerator) {
-            return 0;
-        }
-        return margin_infos[index].margin_amount * (denominator - numerator) / denominator;
+        // (remain_quota_numerator/remain_quota_denominator) / (margin_infos[index].remain_quota_numerator/margin_infos[index].remain_quota_denominator)
+        // = (remain_quota_numerator * margin_infos[index].remain_quota_denominator) / (remain_quota_denominator * margin_infos[index].remain_quota_numerator)
+        uint256 numerator = remain_quota_numerator * margin_infos[index].remain_quota_denominator;
+        uint256 denominator = remain_quota_denominator * margin_infos[index].remain_quota_numerator;
+
+        return margin_infos[index].margin_amount * numerator / denominator;
     }
     // @dev withdraw margin amount
     function withdrawMargins() external override onlyFactory {
@@ -142,9 +144,9 @@ contract Provider is IProvider, ReentrancyGuard {
                 uint256 _punishAmount = address(this).balance >= PunishAmount ? PunishAmount : address(this).balance;
                 if (_punishAmount > 0) {
                     sendValue(payable(provider_factory.punish_address()), _punishAmount);
-                    // update deducted quota
-                    deducted_quota_numerator = deducted_quota_numerator * address(this).balance + _punishAmount * deducted_quota_denominator;
-                    deducted_quota_denominator = deducted_quota_denominator * address(this).balance;
+                    // update remain quota
+                    remain_quota_numerator = remain_quota_numerator * (address(this).balance - _punishAmount);
+                    remain_quota_denominator = remain_quota_denominator * address(this).balance;
 
                     if (provider_factory.punish_item_address() != address(0)) {
                         IPunishContract(provider_factory.punish_item_address()).newPunishItem(owner, _punishAmount, address(this).balance);
@@ -182,7 +184,7 @@ contract Provider is IProvider, ReentrancyGuard {
         last_margin_time = block.timestamp;
         // add new margin info
         margin_infos[++margin_size] = marginInfo(block.number, msg.value, false, block.timestamp,
-            provider_factory.provider_lock_time(), deducted_quota_numerator, deducted_quota_denominator);
+            provider_factory.provider_lock_time(), remain_quota_numerator, remain_quota_denominator);
         if (state == ProviderState.Pause) {
             state = ProviderState.Running;
             emit StateChange(owner, uint256(state));

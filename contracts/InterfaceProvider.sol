@@ -48,9 +48,9 @@ interface IProviderFactory {
         uint256 margin_time;
         // provider margin lock time
         uint256 margin_lock_time;
-        // provider has been deducted quota when this margin add
-        uint256 deducted_quota_numerator;
-        uint256 deducted_quota_denominator;
+        // provider remain quota when this margin add
+        uint256 remain_quota_numerator;
+        uint256 remain_quota_denominator;
     }
     struct marginViewInfo {
         // provider margin amount
