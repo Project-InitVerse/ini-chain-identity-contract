@@ -29,11 +29,40 @@ interface IProviderFactory {
     function punish_item_address() external view returns (address);
 
     function removeProviderPunishList(address provider) external;
+
+    function provider_lock_time() external view returns (uint256);
 }
     struct poaResource {
         uint256 cpu_count;
         uint256 memory_count;
         uint256 storage_count;
+    }
+    struct marginInfo {
+        // provider margin block
+        uint256 margin_block;
+        // provider margin amount
+        uint256 margin_amount;
+        // provider margin has withdrawn or not
+        bool withdrawn;
+        // provider margin time
+        uint256 margin_time;
+        // provider margin lock time
+        uint256 margin_lock_time;
+        // provider has been deducted quota when this margin add
+        uint256 deducted_quota_numerator;
+        uint256 deducted_quota_denominator;
+    }
+    struct marginViewInfo {
+        // provider margin amount
+        uint256 margin_amount;
+        // provider margin has withdrawn or not
+        bool withdrawn;
+        // provider margin time
+        uint256 margin_time;
+        // provider margin lock time
+        uint256 margin_lock_time;
+        // provider margin remain amount
+        uint256 remain_margin_amount;
     }
     enum ProviderState{
         Running,
@@ -52,6 +81,7 @@ interface IProviderFactory {
         string info;
         uint256 last_challenge_time;
         uint256 last_margin_time;
+        marginViewInfo[] margin_infos;
     }
 interface IProvider {
     function getLeftResource() external view returns (poaResource memory);
@@ -70,7 +100,9 @@ interface IProvider {
 
     function last_margin_time() external view returns (uint256);
 
-    function withdrawMargin() external;
+    function withdrawMargin(uint256 index) external;
+
+    function withdrawMargins() external;
 
     function removePunish() external;
 
@@ -79,4 +111,6 @@ interface IProvider {
     function startChallenge(bool) external;
 
     function challenge() external view returns (bool);
+
+    function getRemainMarginAmount(uint256 index) external view returns (uint256);
 }
