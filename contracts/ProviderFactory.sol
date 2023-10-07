@@ -183,7 +183,7 @@ contract Provider is IProvider, ReentrancyGuard {
         margin_block = block.number;
         last_margin_time = block.timestamp;
         // add new margin info
-        margin_infos[++margin_size] = marginInfo(block.number, msg.value, false, block.timestamp,
+        margin_infos[margin_size++] = marginInfo(block.number, msg.value, false, block.timestamp,
             provider_factory.provider_lock_time(), remain_quota_numerator, remain_quota_denominator);
         if (state == ProviderState.Pause) {
             state = ProviderState.Running;
