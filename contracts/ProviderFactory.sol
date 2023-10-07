@@ -143,10 +143,11 @@ contract Provider is IProvider, ReentrancyGuard {
                 uint256 PunishAmount = (provider_factory).getPunishAmount(punish_start_margin_amount);
                 uint256 _punishAmount = address(this).balance >= PunishAmount ? PunishAmount : address(this).balance;
                 if (_punishAmount > 0) {
-                    sendValue(payable(provider_factory.punish_address()), _punishAmount);
                     // update remain quota
                     remain_quota_numerator = remain_quota_numerator * (address(this).balance - _punishAmount);
                     remain_quota_denominator = remain_quota_denominator * address(this).balance;
+
+                    sendValue(payable(provider_factory.punish_address()), _punishAmount);gs
 
                     if (provider_factory.punish_item_address() != address(0)) {
                         IPunishContract(provider_factory.punish_item_address()).newPunishItem(owner, _punishAmount, address(this).balance);
