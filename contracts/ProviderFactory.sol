@@ -140,6 +140,7 @@ contract Provider is IProvider, ReentrancyGuard {
     function punish() external override onlyFactory {
         if (block.timestamp - punish_start_time > provider_factory.punish_start_limit() && punish_start_time != 0) {
             if (block.timestamp - last_punish_time > provider_factory.punish_interval()) {
+                last_punish_time = block.timestamp;
                 uint256 PunishAmount = (provider_factory).getPunishAmount(punish_start_margin_amount);
                 uint256 _punishAmount = address(this).balance >= PunishAmount ? PunishAmount : address(this).balance;
                 if (_punishAmount > 0) {
@@ -154,7 +155,6 @@ contract Provider is IProvider, ReentrancyGuard {
                     }
                     emit Punish(owner, _punishAmount, address(this).balance);
                 }
-                last_punish_time = block.timestamp;
             }
             if (address(this).balance == 0) {
                 state = ProviderState.Pause;
