@@ -260,13 +260,28 @@ contract Provider is IProvider, ReentrancyGuard {
         ret.challenge = challenge;
         ret.last_challenge_time = last_challenge_time;
         ret.last_margin_time = last_margin_time;
-        marginViewInfo[] memory margin_view_infos = new marginViewInfo[](margin_size);
-        for(uint256 i = 0; i < margin_size; i++) {
+        ret.margin_size = margin_size;
+        uint margin_count = margin_size > 20 ? 20 : margin_size;
+        marginViewInfo[] memory margin_view_infos = new marginViewInfo[](margin_count);
+        for(uint256 i = 0; i < margin_count; i++) {
             margin_view_infos[i] = marginViewInfo(margin_infos[i].margin_amount, margin_infos[i].withdrawn,
                 margin_infos[i].margin_time, margin_infos[i].margin_lock_time, getRemainMarginAmount(i));
         }
         ret.margin_infos = margin_view_infos;
         return ret;
+    }
+
+    // @dev get provider margin list
+    function getMarginInfoList(uint from, uint size) external view override returns (marginViewInfo[] memory){
+        require(from > 0 && size > 0, "from and size must gt 0");
+        require(from + size - 1 <= margin_size, "request exceed margin size");
+
+        marginViewInfo[] memory margin_view_infos = new marginViewInfo[](margin_count);
+        for(uint256 i = from - 1; i < from + size - 1; i++) {
+            margin_view_infos[i] = marginViewInfo(margin_infos[i].margin_amount, margin_infos[i].withdrawn,
+                margin_infos[i].margin_time, margin_infos[i].margin_lock_time, getRemainMarginAmount(i));
+        }
+        return margin_view_infos;
     }
 
     // @dev get total resource
