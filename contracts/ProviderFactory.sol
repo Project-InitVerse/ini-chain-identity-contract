@@ -147,6 +147,9 @@ contract Provider is IProvider, ReentrancyGuard {
                     // update remain quota
                     remain_quota_numerator = remain_quota_numerator * (address(this).balance - _punishAmount);
                     remain_quota_denominator = remain_quota_denominator * address(this).balance;
+                    uint256 div = 10 ** countTrailingZeros(remain_quota_denominator - remain_quota_numerator);
+                    remain_quota_numerator = remain_quota_numerator / div;
+                    remain_quota_denominator = remain_quota_denominator / div;
 
                     sendValue(payable(provider_factory.punish_address()), _punishAmount);
 
@@ -171,6 +174,20 @@ contract Provider is IProvider, ReentrancyGuard {
                 punish_start_margin_amount = address(this).balance;
             }
         }
+    }
+    // @dev count trailing zeros
+    function countTrailingZeros(uint256 x) internal pure returns (uint) {
+        uint count = 0;
+        uint n = 16;
+        while (n > 0) {
+            while(x % (10 ** n) == 0) {
+                x = x / (10 ** n);
+                count += n;
+            }
+            n = n / 2;
+        }
+
+        return count;
     }
     // @dev internal function for transfer value
     function sendValue(address payable recipient, uint256 amount) internal {
