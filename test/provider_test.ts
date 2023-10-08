@@ -298,4 +298,93 @@ describe('provider test',function(){
     expect(total_used.memory_count).to.equal(0);
     expect(total_used.storage_count).to.equal(0);
   })
+  it("add margin", async function() {
+    await this.providerFactory.connect(provider_1).createNewProvider(2000,8 * 1024 * 1024 * 1024,16 * 1024 * 1024 * 1024,"cn","{}",{value:ethers.utils.parseEther("2000")});
+    let provider = await this.providerFactory.providers(provider_1.address);
+    let provider_contract = await ethers.getContractAt('Provider',provider);
+
+    let marginSize = await provider_contract.margin_size();
+    expect(marginSize).to.equal(1);
+    let remainMarginAmount0 = await provider_contract.connect(provider_1).getRemainMarginAmount(0);
+    expect(remainMarginAmount0).to.equal(ethers.utils.parseEther('2000'));
+
+    let punish_start_balance = await ethers.provider.getBalance(provider);
+    expect(punish_start_balance).to.equal(ethers.utils.parseEther("2000"));
+
+    // start punish
+    await this.providerFactory.tryPunish(provider_1.address)
+    let punishBlock = await ethers.provider.getBlock("latest");
+    expect(await provider_contract.punish_start_margin_amount()).to.equal(ethers.utils.parseEther("2000"));
+    await network.provider.request({
+      method: "evm_setNextBlockTimestamp",
+      params: [punishBlock.timestamp+48*3600+30],
+    });
+
+    // first deduct margin
+    await this.providerFactory.tryPunish(provider_1.address);
+    let punish_balance = await ethers.provider.getBalance(provider);
+    // punish amount
+    expect(punish_start_balance.sub(punish_balance)).to.equal(ethers.utils.parseEther('20'));
+
+    // margin0 remain amount
+    remainMarginAmount0 = await provider_contract.connect(provider_1).getRemainMarginAmount(0);
+    expect(remainMarginAmount0).to.equal(ethers.utils.parseEther('1980'));
+
+    punishBlock = await ethers.provider.getBlock("latest");
+    await network.provider.request({
+      method: "evm_setNextBlockTimestamp",
+      params: [punishBlock.timestamp+24*3600+30],
+    });
+    // add margin, total: 1980 + 2020 = 4000
+    await this.providerFactory.connect(provider_1).addMargin({value:ethers.utils.parseEther("2020")});
+    let remainMarginAmount1 = await provider_contract.connect(provider_1).getRemainMarginAmount(1);
+    expect(remainMarginAmount1).to.equal(ethers.utils.parseEther('2020'));
+    marginSize = await provider_contract.margin_size();
+    expect(marginSize).to.equal(2);
+
+    // second deduct margin
+    await this.providerFactory.tryPunish(provider_1.address);
+    punish_balance = await ethers.provider.getBalance(provider);
+    // punish balance, 4000 - 20 = 3980
+    expect(punish_balance).to.equal(ethers.utils.parseEther('3980'));
+
+    // margin0 remain amount, 1980 - 20 * 1980 / 4000 = 1980 - 9.9 = 1970.1
+    remainMarginAmount0 = await provider_contract.connect(provider_1).getRemainMarginAmount(0);
+    expect(remainMarginAmount0).to.equal(ethers.utils.parseEther('1970.1'));
+
+    // margin1 remain amount, 2020 - 20 * 2020 / 4000 = 2020 - 10.1 = 2009.9
+    remainMarginAmount1 = await provider_contract.connect(provider_1).getRemainMarginAmount(1);
+    expect(remainMarginAmount1).to.equal(ethers.utils.parseEther('2009.9'));
+
+    punishBlock = await ethers.provider.getBlock("latest");
+    await network.provider.request({
+      method: "evm_setNextBlockTimestamp",
+      params: [punishBlock.timestamp+24*3600+30],
+    });
+
+    // add margin, total: 3980 + 1020 = 5000
+    await this.providerFactory.connect(provider_1).addMargin({value:ethers.utils.parseEther("1020")});
+    let remainMarginAmount2 = await provider_contract.connect(provider_1).getRemainMarginAmount(2);
+    expect(remainMarginAmount2).to.equal(ethers.utils.parseEther('1020'));
+    marginSize = await provider_contract.margin_size();
+    expect(marginSize).to.equal(3);
+
+    // third deduct margin
+    await this.providerFactory.tryPunish(provider_1.address);
+    punish_balance = await ethers.provider.getBalance(provider);
+    // punish balance, 5000 - 20 = 4980
+    expect(punish_balance).to.equal(ethers.utils.parseEther('4980'));
+
+    // margin0 remain amount, 1970.1 - 20 * 1970.1 / 5000 = 1970.1 - 7.8804 = 1962.2196
+    remainMarginAmount0 = await provider_contract.connect(provider_1).getRemainMarginAmount(0);
+    expect(remainMarginAmount0).to.equal(ethers.utils.parseEther('1962.2196'));
+
+    // margin1 remain amount, 2009.9 - 20 * 2009.9 / 5000 = 2009.9 - 8.0396 = 2001.8604
+    remainMarginAmount1 = await provider_contract.connect(provider_1).getRemainMarginAmount(1);
+    expect(remainMarginAmount1).to.equal(ethers.utils.parseEther('2001.8604'));
+
+    // margin2 remain amount, 1020 - 20 * 1020 / 5000 = 1000 - 4.08 = 1015.92
+    remainMarginAmount2 = await provider_contract.connect(provider_1).getRemainMarginAmount(2);
+    expect(remainMarginAmount2).to.equal(ethers.utils.parseEther('1015.92'));
+  });
 })
