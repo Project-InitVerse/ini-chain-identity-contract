@@ -9,6 +9,8 @@ import "./SortList.sol";
 import "./IPunishContract.sol";
 
 contract Provider is IProvider, ReentrancyGuard {
+    uint internal constant ACCURACY = 20;
+
     // provider total resource
     poaResource public total;
     // provider user used resource
@@ -35,6 +37,8 @@ contract Provider is IProvider, ReentrancyGuard {
     mapping(uint256 => marginInfo) public margin_infos;
     // provider margin size
     uint256 public margin_size;
+    // provider withdrawn margin size
+    uint256 public withdrawn_margin_size;
     // provider remain quota
     uint256 public remain_quota_numerator;
     uint256 public remain_quota_denominator;
@@ -99,6 +103,9 @@ contract Provider is IProvider, ReentrancyGuard {
         if (margin_infos[index].withdrawn) {
             return 0;
         }
+        if (margin_size - withdrawn_margin_size == 1) {
+            return address(this).balance;
+        }
         // (remain_quota_numerator/remain_quota_denominator) / (margin_infos[index].remain_quota_numerator/margin_infos[index].remain_quota_denominator)
         // = (remain_quota_numerator * margin_infos[index].remain_quota_denominator) / (remain_quota_denominator * margin_infos[index].remain_quota_numerator)
         uint256 numerator = remain_quota_numerator * margin_infos[index].remain_quota_denominator;
@@ -112,6 +119,7 @@ contract Provider is IProvider, ReentrancyGuard {
         sendValue(payable(owner), address(this).balance);
         for (uint256 i = 0; i < margin_size; i++) {
             margin_infos[i].withdrawn = true;
+            withdrawn_margin_size++;
         }
 
         emit MarginWithdraw(owner, balance_before);
@@ -122,8 +130,10 @@ contract Provider is IProvider, ReentrancyGuard {
         require(margin_infos[index].margin_time + margin_infos[index].margin_lock_time < block.timestamp, "time not enough");
 
         uint256 balance_before = address(this).balance;
-        sendValue(payable(owner), getRemainMarginAmount(index));
         margin_infos[index].withdrawn = true;
+        uint256 remainAmount = getRemainMarginAmount(index);
+        withdrawn_margin_size++;
+        sendValue(payable(owner), remainAmount);
 
         emit MarginWithdraw(owner, balance_before);
     }
@@ -147,9 +157,12 @@ contract Provider is IProvider, ReentrancyGuard {
                     // update remain quota
                     remain_quota_numerator = remain_quota_numerator * (address(this).balance - _punishAmount);
                     remain_quota_denominator = remain_quota_denominator * address(this).balance;
-                    uint256 div = 10 ** countTrailingZeros(remain_quota_denominator - remain_quota_numerator);
-                    remain_quota_numerator = remain_quota_numerator / div;
-                    remain_quota_denominator = remain_quota_denominator / div;
+                    uint denominatorLength = getLength(remain_quota_denominator);
+                    if (denominatorLength > ACCURACY) {
+                        uint256 div = 10 ** (denominatorLength - ACCURACY);
+                        remain_quota_numerator = remain_quota_numerator / div;
+                        remain_quota_denominator = remain_quota_denominator / div;
+                    }
 
                     sendValue(payable(provider_factory.punish_address()), _punishAmount);
 
@@ -175,19 +188,19 @@ contract Provider is IProvider, ReentrancyGuard {
             }
         }
     }
-    // @dev count trailing zeros
-    function countTrailingZeros(uint256 x) internal pure returns (uint) {
-        uint count = 0;
+    // @dev get number length
+    function getLength(uint num) public pure returns (uint) {
+        uint length = 1;
         uint n = 16;
         while (n > 0) {
-            while(x % (10 ** n) == 0) {
-                x = x / (10 ** n);
-                count += n;
+            while(num / (10 ** n) > 0) {
+                num = num / (10 ** n);
+                length += n;
             }
             n = n / 2;
         }
 
-        return count;
+        return length;
     }
     // @dev internal function for transfer value
     function sendValue(address payable recipient, uint256 amount) internal {
@@ -451,6 +464,7 @@ contract ProviderFactory is IProviderFactory, ReentrancyGuard {
     // @dev provider owner add margin
     function addMargin() public payable {
         require(providers[msg.sender] != IProvider(address(0)), "only provider owner");
+        require(msg.value % (10 ** 12) == 0, "pledge amount is accurate to 6 decimal places");
         poaResource memory temp_total = providers[msg.sender].getTotalResource();
         (uint256 limit_min,uint256 limit_max) = calcProviderAmount(temp_total.cpu_count, temp_total.memory_count);
         require(address(providers[msg.sender]).balance + msg.value >= limit_min && address(providers[msg.sender]).balance + msg.value <= limit_max, "pledge money range error");
