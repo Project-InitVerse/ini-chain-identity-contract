@@ -274,7 +274,8 @@ contract Provider is IProvider, ReentrancyGuard {
     // @dev get provider margin list
     function getMarginInfoList(uint from, uint size) external view override returns (marginViewInfo[] memory){
         require(from > 0 && size > 0, "from and size must gt 0");
-        require(from + size - 1 <= margin_size, "request exceed margin size");
+        require(from <= margin_size, "request exceed margin size");
+        uint margin_count = from + size - 1 <= margin_size ? size : margin_size - from + 1;
 
         marginViewInfo[] memory margin_view_infos = new marginViewInfo[](margin_count);
         for(uint256 i = from - 1; i < from + size - 1; i++) {
