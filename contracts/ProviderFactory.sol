@@ -681,6 +681,10 @@ contract ProviderFactory is IProviderFactory, ReentrancyGuard {
         }
         return _providerInfos;
     }
+    // @dev get provider margin list
+    function getMarginInfoList(uint from, uint size) public view returns (marginViewInfo[] memory){
+        return providers[msg.sender].getMarginInfoList(from, size);
+    }
     // @dev remove provider from punish list
     function removeProviderPunishList(address provider) external onlyProvider {
         SortLinkedList.List storage _list = provider_punish_pools;
