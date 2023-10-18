@@ -278,9 +278,10 @@ contract Provider is IProvider, ReentrancyGuard {
         uint margin_count = from + size - 1 <= margin_size ? size : margin_size - from + 1;
 
         marginViewInfo[] memory margin_view_infos = new marginViewInfo[](margin_count);
-        for(uint256 i = from - 1; i < from + margin_count - 1; i++) {
-            margin_view_infos[i] = marginViewInfo(margin_infos[i].margin_amount, margin_infos[i].withdrawn,
-                margin_infos[i].margin_time, margin_infos[i].margin_lock_time, getRemainMarginAmount(i));
+        for(uint256 i = 0; i < margin_count; i++) {
+            uint index = from - 1 + i;
+            margin_view_infos[i] = marginViewInfo(margin_infos[index].margin_amount, margin_infos[index].withdrawn,
+                margin_infos[index].margin_time, margin_infos[index].margin_lock_time, getRemainMarginAmount(index));
         }
         return margin_view_infos;
     }
