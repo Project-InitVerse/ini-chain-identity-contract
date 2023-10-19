@@ -82,6 +82,7 @@ interface IProviderFactory {
         uint256 last_challenge_time;
         uint256 last_margin_time;
         marginViewInfo[] margin_infos;
+        uint256 margin_size;
     }
 interface IProvider {
     function getLeftResource() external view returns (poaResource memory);
@@ -97,6 +98,8 @@ interface IProvider {
     function info() external view returns (string memory);
 
     function getDetail() external view returns (providerInfo memory);
+
+    function getMarginInfoList(uint from, uint size) external view returns (marginViewInfo[] memory);
 
     function last_margin_time() external view returns (uint256);
 
