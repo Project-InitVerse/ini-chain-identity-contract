@@ -130,8 +130,8 @@ contract Provider is IProvider, ReentrancyGuard {
         require(margin_infos[index].margin_time + margin_infos[index].margin_lock_time < block.timestamp, "time not enough");
 
         uint256 balance_before = address(this).balance;
-        margin_infos[index].withdrawn = true;
         uint256 remainAmount = getRemainMarginAmount(index);
+        margin_infos[index].withdrawn = true;
         withdrawn_margin_size++;
         sendValue(payable(owner), remainAmount);
 
